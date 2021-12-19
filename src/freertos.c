@@ -5,6 +5,8 @@
 #include "cmsis_os.h"
 #include "usbd_cdc_if.h"
 
+#include <lcd_hd44780_i2c.h>
+
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
@@ -22,6 +24,7 @@ const osThreadAttr_t defaultTask_attributes = {
 /* Private function prototypes -----------------------------------------------*/
 void logString(char *data);
 void StartDefaultTask(void *argument);
+extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 void MX_FREERTOS_Init(void) {
@@ -44,9 +47,16 @@ void StartDefaultTask(void *argument)
 
   MX_USB_DEVICE_Init();
 
-  osDelay(10000);
-
   logString("Started\n");
+  if(HAL_I2C_IsDeviceReady(&hi2c1, (addr<<1), 3, 5) == HAL_OK) {
+    sprintf(logbuf, "0x%2.2X SUCCESS\n", addr);
+  } else {
+    sprintf(logbuf, "0x%2.2X FAIL\n", addr);
+  }
+  logString(logbuf);
+
+  lcdInit(&hi2c1, (uint8_t)0x26, (uint8_t)2, (uint8_t)20);
+
   for(;;)
   {
     cbuf[3] = ~cbuf[3];
@@ -54,38 +64,29 @@ void StartDefaultTask(void *argument)
     sprintf(logbuf, "I2C Transmit: %2.2X %2.2X to %2.2X\n", cbuf[0], cbuf[1], addr);
     logString(logbuf);
 
-    if (HAL_I2C_Master_Transmit_DMA(&hi2c1, addr, &cbuf[0], 2) != HAL_OK) {
+    if (HAL_I2C_Master_Transmit(&hi2c1, addr<<1, &cbuf[0], 2, HAL_MAX_DELAY) != HAL_OK) {
       logString("NOT HAL_OK\n");
     } else {
       logString("HAL_OK\n");
     }
 
-    logString("Waiting for ready\n");
-    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY) {
-        logString("...\n");
-        vTaskDelay(1);
-    }
-    logString("Ready\n");
     sprintf(logbuf, "I2C error code %" PRIu32 "\n", hi2c1.ErrorCode);
     logString(logbuf);
 
     sprintf(logbuf, "I2C Transmit: %2.2X %2.2X to %2.2X\n", cbuf[2], cbuf[3], addr);
     logString(logbuf);
 
-    if (HAL_I2C_Master_Transmit_DMA(&hi2c1, addr, &cbuf[2], 2) != HAL_OK) {
+    if (HAL_I2C_Master_Transmit(&hi2c1, addr<<1, &cbuf[2], 2, HAL_MAX_DELAY) != HAL_OK) {
       logString("NOT HAL_OK\n");
     } else {
       logString("HAL_OK\n");
     }
 
-    logString("Waiting for ready\n");
-    while (HAL_I2C_GetState(&hi2c1) != HAL_I2C_STATE_READY) {
-        logString("...\n");
-        vTaskDelay(1);
-    }
-    logString("Ready\n");
     sprintf(logbuf, "I2C error code %" PRIu32 "\n", hi2c1.ErrorCode);
     logString(logbuf);
+
+    lcdSetCursorPosition(0, 0);
+    lcdPrintStr((uint8_t*)"Time", 4);
 
     osDelay(1000);
   }
