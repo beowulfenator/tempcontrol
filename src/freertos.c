@@ -12,6 +12,8 @@
 #include <string.h>
 
 I2C_HandleTypeDef hi2c1;
+RTC_HandleTypeDef hrtc;
+
 
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -44,6 +46,8 @@ void StartDefaultTask(void *argument)
   char logbuf[200] = {0};
   uint8_t addr = 0x27;
   uint8_t cbuf[6] = {0x00, 0x00, 0x12, 0xFF, 0x00, 0x00}; // I2C command buffer
+  RTC_DateTypeDef date;
+  RTC_TimeTypeDef time;
 
   MX_USB_DEVICE_Init();
 
@@ -87,6 +91,24 @@ void StartDefaultTask(void *argument)
 
     lcdSetCursorPosition(0, 0);
     lcdPrintStr((uint8_t*)"Time", 4);
+
+    if(HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BIN) == HAL_OK) {
+      logString("Date HAL_OK\n");
+    } else {
+      logString("Date error\n");
+    }
+
+    if(HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN) == HAL_OK) {
+      logString("Time HAL_OK\n");
+    } else {
+      logString("Time error\n");
+    }
+
+    sprintf(logbuf, "20%2.2d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d", date.Year, date.Month, date.Date, time.Hours, time.Minutes, time.Seconds);
+    lcdSetCursorPosition(0, 1);
+    lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
+
+    logString("Printed date/time\n");
 
     osDelay(1000);
   }
