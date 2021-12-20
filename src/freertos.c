@@ -6,6 +6,8 @@
 #include "usbd_cdc_if.h"
 
 #include <lcd_hd44780_i2c.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -13,6 +15,7 @@
 
 I2C_HandleTypeDef hi2c1;
 RTC_HandleTypeDef hrtc;
+UART_HandleTypeDef huart1;
 
 
 /* Definitions for defaultTask */
@@ -49,6 +52,10 @@ void StartDefaultTask(void *argument)
   RTC_DateTypeDef date;
   RTC_TimeTypeDef time;
 
+  OneWire_HandleTypeDef ow;
+  DallasTemperature_HandleTypeDef dt;
+  CurrentDeviceAddress insideThermometer;
+
   MX_USB_DEVICE_Init();
 
   logString("Started\n");
@@ -60,6 +67,63 @@ void StartDefaultTask(void *argument)
   logString(logbuf);
 
   lcdInit(&hi2c1, (uint8_t)0x26, (uint8_t)2, (uint8_t)20);
+
+  for(;;){
+    OW_Begin(&ow, &huart1);
+
+    if(OW_Reset(&ow) == OW_OK) {
+      logString("OneWire devices are present\n");
+    }
+    else {
+      logString("OneWire no devices\n");
+    }
+
+    DT_SetOneWire(&dt, &ow);
+
+    logString("Locating devices...\n");
+
+    DT_Begin(&dt);
+
+    uint8_t deviceCount = DT_GetDeviceCount(&dt);
+
+    sprintf(logbuf, "Found %d devices\n", deviceCount);
+    logString(logbuf);
+
+    for (uint8_t m = 0; m < deviceCount; m++) {
+      if (!DT_GetAddress(&dt, insideThermometer, m)) {
+        logString("Unable to find address for Device\n");
+      } else {
+        sprintf(logbuf, "Device %d: ", m);
+        logString(logbuf);
+        for (uint8_t i = 0; i < 8; i++)
+        {
+          sprintf(logbuf, "0x%02X ", insideThermometer[i]);
+          logString(logbuf);
+        }
+        logString("\n");
+        sprintf(logbuf, "Device %d Resolution: %d\n", m, DT_GetResolution(&dt, insideThermometer));
+        logString(logbuf);
+      }
+    }
+
+    logString("Requesting temperatures...\n");
+    DT_RequestTemperatures(&dt); // Send the command to get temperatures
+    logString("DONE\n");
+
+    for (uint8_t m = 0; m < deviceCount; m++) {
+	    DT_GetAddress(&dt, insideThermometer, m);
+      int16_t t = DT_GetTemp(&dt, insideThermometer);
+      sprintf(logbuf, "Temperature for the device %d is: %d\n", m, t/128);
+      logString(logbuf);
+
+      sprintf(logbuf, "T%d: %d\xdf" "C", m, t/128);
+
+      lcdSetCursorPosition(0, m);
+      lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
+    }
+
+    osDelay(2000);
+  }
 
   for(;;)
   {
