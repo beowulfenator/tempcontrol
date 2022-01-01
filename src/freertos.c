@@ -8,6 +8,7 @@
 #include <lcd_hd44780_i2c.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <sht3x.h>
 
 #include <stdio.h>
 #include <inttypes.h>
@@ -56,6 +57,12 @@ void StartDefaultTask(void *argument)
   DallasTemperature_HandleTypeDef dt;
   CurrentDeviceAddress insideThermometer;
 
+  // Create the handle for the sensor.
+  sht3x_handle_t handle = {
+    .i2c_handle = &hi2c1,
+    .device_address = SHT3X_I2C_DEVICE_ADDRESS_ADDR_PIN_LOW
+  };
+
   MX_USB_DEVICE_Init();
 
   logString("Started\n");
@@ -66,7 +73,7 @@ void StartDefaultTask(void *argument)
   }
   logString(logbuf);
 
-  lcdInit(&hi2c1, (uint8_t)0x26, (uint8_t)2, (uint8_t)20);
+  lcdInit(&hi2c1, (uint8_t)0x26, (uint8_t)4, (uint8_t)20);
 
   for(;;){
     OW_Begin(&ow, &huart1);
@@ -121,6 +128,18 @@ void StartDefaultTask(void *argument)
       lcdSetCursorPosition(0, m);
       lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
     }
+
+    // Initialise sensor (tests connection by reading the status register).
+    if (!sht3x_init(&handle)) {
+      logString("SHT3x access failed.\n");
+    }
+
+    // Read temperature and humidity.
+    float temperature, humidity;
+    sht3x_read_temperature_and_humidity(&handle, &temperature, &humidity);
+    sprintf(logbuf, "%d\xdf" "C, %d%%RH", (int)temperature, (int)humidity);
+    lcdSetCursorPosition(0, 2);
+    lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
 
     osDelay(2000);
   }
