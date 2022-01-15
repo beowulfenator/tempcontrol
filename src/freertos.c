@@ -9,13 +9,13 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <sht3x.h>
+#include <ds3231.h>
 
 #include <stdio.h>
 #include <inttypes.h>
 #include <string.h>
 
 I2C_HandleTypeDef hi2c1;
-RTC_HandleTypeDef hrtc;
 UART_HandleTypeDef huart1;
 
 
@@ -50,8 +50,9 @@ void StartDefaultTask(void *argument)
   char logbuf[200] = {0};
   uint8_t addr = 0x27;
   uint8_t cbuf[6] = {0x00, 0x00, 0x12, 0xFF, 0x00, 0x00}; // I2C command buffer
-  RTC_DateTypeDef date;
-  RTC_TimeTypeDef time;
+
+  uint8_t hour, minute, second, month, date;
+  uint16_t year;
 
   OneWire_HandleTypeDef ow;
   DallasTemperature_HandleTypeDef dt;
@@ -74,6 +75,15 @@ void StartDefaultTask(void *argument)
   logString(logbuf);
 
   lcdInit(&hi2c1, (uint8_t)0x26, (uint8_t)4, (uint8_t)20);
+  DS3231_Init(&hi2c1);
+
+  // DS3231_SetHour(22);
+  // DS3231_SetMinute(23);
+  // DS3231_SetSecond(0);
+
+  // DS3231_SetYear(2022);
+  // DS3231_SetMonth(1);
+  // DS3231_SetDate(15);
 
   for(;;){
     OW_Begin(&ow, &huart1);
@@ -138,14 +148,31 @@ void StartDefaultTask(void *argument)
     float temperature, humidity;
     sht3x_read_temperature_and_humidity(&handle, &temperature, &humidity);
     sprintf(logbuf, "%d\xdf" "C, %d%%RH", (int)temperature, (int)humidity);
+    lcdSetCursorPosition(0, 1);
+    lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
+
+    year = DS3231_GetYear();
+    month = DS3231_GetMonth();
+    date = DS3231_GetDate();
+    sprintf(logbuf, "%4.4d-%2.2d-%2.2d", year, month, date);
     lcdSetCursorPosition(0, 2);
     lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
 
-    osDelay(2000);
-  }
+    hour = DS3231_GetHour();
+    minute = DS3231_GetMinute();
+    second = DS3231_GetSecond();
+    sprintf(logbuf, "%2.2d:%2.2d:%2.2d", hour, minute, second);
+    lcdSetCursorPosition(0, 3);
+    lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
 
-  for(;;)
-  {
+ 
+    sprintf(logbuf, "%4d\xdf" "C", DS3231_GetTemperatureInteger());
+    lcdSetCursorPosition(14, 3);
+    lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
+
+    logString("Printed date/time\n");
+
+    // port extender
     cbuf[3] = ~cbuf[3];
 
     sprintf(logbuf, "I2C Transmit: %2.2X %2.2X to %2.2X\n", cbuf[0], cbuf[1], addr);
@@ -172,28 +199,7 @@ void StartDefaultTask(void *argument)
     sprintf(logbuf, "I2C error code %" PRIu32 "\n", hi2c1.ErrorCode);
     logString(logbuf);
 
-    lcdSetCursorPosition(0, 0);
-    lcdPrintStr((uint8_t*)"Time", 4);
-
-    if(HAL_RTC_GetDate(&hrtc, &date, RTC_FORMAT_BIN) == HAL_OK) {
-      logString("Date HAL_OK\n");
-    } else {
-      logString("Date error\n");
-    }
-
-    if(HAL_RTC_GetTime(&hrtc, &time, RTC_FORMAT_BIN) == HAL_OK) {
-      logString("Time HAL_OK\n");
-    } else {
-      logString("Time error\n");
-    }
-
-    sprintf(logbuf, "20%2.2d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d", date.Year, date.Month, date.Date, time.Hours, time.Minutes, time.Seconds);
-    lcdSetCursorPosition(0, 1);
-    lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
-
-    logString("Printed date/time\n");
-
-    osDelay(1000);
+    osDelay(500);
   }
 }
 
