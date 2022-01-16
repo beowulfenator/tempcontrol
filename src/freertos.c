@@ -45,6 +45,8 @@ void MX_FREERTOS_Init(void) {
   /* add events, ... */
 }
 
+uint8_t key_counter;
+
 void StartDefaultTask(void *argument)
 {
   char logbuf[200] = {0};
@@ -198,6 +200,10 @@ void StartDefaultTask(void *argument)
 
     sprintf(logbuf, "I2C error code %" PRIu32 "\n", hi2c1.ErrorCode);
     logString(logbuf);
+
+    sprintf(logbuf, "%d", key_counter);
+    lcdSetCursorPosition(19, 0);
+    lcdPrintStr((uint8_t *)logbuf, strlen(logbuf));
 
     osDelay(500);
   }
