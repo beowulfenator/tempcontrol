@@ -3,7 +3,6 @@
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
-#include "usbd_cdc_if.h"
 
 #include <lcd_hd44780_i2c.h>
 #include <OneWire.h>
@@ -65,8 +64,6 @@ void StartDefaultTask(void *argument)
     .i2c_handle = &hi2c1,
     .device_address = SHT3X_I2C_DEVICE_ADDRESS_ADDR_PIN_LOW
   };
-
-  MX_USB_DEVICE_Init();
 
   logString("Started\n");
   if(HAL_I2C_IsDeviceReady(&hi2c1, (addr<<1), 3, 5) == HAL_OK) {
@@ -210,7 +207,8 @@ void StartDefaultTask(void *argument)
 }
 
 void logString(char *data) {
-    while (CDC_Transmit_FS((uint8_t *)data, strlen(data)) != USBD_OK) {
-      vTaskDelay(1);
-    }
+    // while (CDC_Transmit_FS((uint8_t *)data, strlen(data)) != USBD_OK) {
+    //   vTaskDelay(1);
+    // }
+    vTaskDelay(1);
 }
