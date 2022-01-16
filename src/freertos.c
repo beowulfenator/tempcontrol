@@ -49,9 +49,17 @@ uint8_t key_counter;
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   if (GPIO_Pin == GPIO_PIN_0) {
-    key_counter++;
+    if (key_counter <= 9) {
+      key_counter++;
+    } else {
+      key_counter = 0;
+    }
   } else if (GPIO_Pin == GPIO_PIN_1) {
-    key_counter--;
+    if (key_counter > 0) {
+      key_counter--;
+    } else {
+      key_counter = 9;
+    }
   }
 } 
 
